@@ -3,6 +3,7 @@ const RES_KEY = 'ars_reservations_v1';
 const CITIES_KEY = 'ars_cities_v1';
 const SEED_VERSION_KEY = 'ars_seed_version_v1';
 const SEED_VERSION = '2026-05-03';
+const NO_TRANSIT_LIMIT = -1;
 
 const flightsSeed = `Islamabad Newyork 1/12/2019 11:00 18:00 150000 Emirates
 Islamabad Newyork 1/12/2019 8:00 13:00 300000 Qatar
@@ -466,8 +467,12 @@ const searchJourneysRecursive = (
         continue;
       }
       if (transitConstraint?.enabled && currentCity === transitConstraint.city) {
-        const minMinutes = transitConstraint.minHours >= 0 ? transitConstraint.minHours * 60 : 0;
-        const maxMinutes = transitConstraint.maxHours >= 0 ? transitConstraint.maxHours * 60 : -1;
+        const minMinutes =
+          transitConstraint.minHours >= 0 ? transitConstraint.minHours * 60 : 0;
+        const maxMinutes =
+          transitConstraint.maxHours >= 0
+            ? transitConstraint.maxHours * 60
+            : NO_TRANSIT_LIMIT;
         if (addedTransit < minMinutes) {
           continue;
         }
@@ -481,7 +486,7 @@ const searchJourneysRecursive = (
     const flightDuration = calculateFlightDuration(flight.departureTime, flight.arrivalTime);
     let hotelCharge = 0;
     if (addedTransit > 0) {
-      const transitHours = Math.floor((addedTransit + 59) / 60);
+      const transitHours = Math.ceil(addedTransit / 60);
       const cityCharge = getCities()[currentCity] || 0;
       hotelCharge = calculateHotelCharge(transitHours, cityCharge);
     }
@@ -663,8 +668,8 @@ const queryConnectingWithTransit = (origin, destination, date, transitLocation) 
     date,
     getCityCount(),
     transitLocation,
-    -1,
-    -1,
+    NO_TRANSIT_LIMIT,
+    NO_TRANSIT_LIMIT,
   );
 
 const queryDirectFlightsOnly = (origin, destination, date) =>
@@ -907,8 +912,12 @@ searchFlightForm.addEventListener('submit', (event) => {
       setMessage(searchResult, 'Valid transit city is required.', true);
       return;
     }
-    const minHours = formData.minTransit ? Number(formData.minTransit) : 0;
-    const maxHours = formData.maxTransit ? Number(formData.maxTransit) : 0;
+    if (!formData.minTransit || !formData.maxTransit) {
+      setMessage(searchResult, 'Minimum and maximum transit hours are required.', true);
+      return;
+    }
+    const minHours = Number(formData.minTransit);
+    const maxHours = Number(formData.maxTransit);
     if (Number.isNaN(minHours) || Number.isNaN(maxHours)) {
       setMessage(searchResult, 'Transit hours must be numeric.', true);
       return;
@@ -935,8 +944,8 @@ searchFlightForm.addEventListener('submit', (event) => {
   } else if (formData.mode === 'combined') {
     const airline = formData.airline ? formData.airline.trim() : '';
     const transit = formData.transit ? normalizeCityName(formData.transit) : '';
-    const minHours = formData.minTransit ? Number(formData.minTransit) : -1;
-    const maxHours = formData.maxTransit ? Number(formData.maxTransit) : -1;
+    const minHours = formData.minTransit ? Number(formData.minTransit) : NO_TRANSIT_LIMIT;
+    const maxHours = formData.maxTransit ? Number(formData.maxTransit) : NO_TRANSIT_LIMIT;
     if (transit && !isValidCityName(transit)) {
       setMessage(searchResult, 'Valid transit city is required.', true);
       return;

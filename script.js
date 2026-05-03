@@ -943,10 +943,11 @@ searchFlightForm.addEventListener('submit', (event) => {
     output = renderJourneys(journeys);
   } else if (formData.mode === 'combined') {
     const airline = formData.airline ? formData.airline.trim() : '';
-    const transit = formData.transit ? normalizeCityName(formData.transit) : '';
+    const rawTransit = formData.transit ? formData.transit.trim() : '';
+    const transit = rawTransit ? normalizeCityName(rawTransit) : '';
     const minHours = formData.minTransit ? Number(formData.minTransit) : NO_TRANSIT_LIMIT;
     const maxHours = formData.maxTransit ? Number(formData.maxTransit) : NO_TRANSIT_LIMIT;
-    if (transit && !isValidCityName(transit)) {
+    if (rawTransit && !isValidCityName(rawTransit)) {
       setMessage(searchResult, 'Valid transit city is required.', true);
       return;
     }

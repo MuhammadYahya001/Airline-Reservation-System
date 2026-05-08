@@ -4,6 +4,14 @@ const CITIES_KEY = 'ars_cities_v1';
 const SEED_VERSION_KEY = 'ars_seed_version_v1';
 const SEED_VERSION = '2026-05-03';
 const NO_TRANSIT_LIMIT = -1;
+const SECURITY_CONFIG = {
+  INITIAL_THREAT_SCORE: 6,
+  MAX_TICKET_PRICE: 500000,
+  SAFE_TEXT_PATTERN: /^[a-zA-Z0-9 .,'-]+$/,
+  MAX_DISPLAYED_ISSUES: 5,
+  MAX_THREAT_SCORE: 100,
+  VALID_RESERVATION_STATUSES: ['BOOKED', 'CANCELLED'],
+};
 
 const flightsSeed = `Islamabad Newyork 1/12/2019 11:00 18:00 150000 Emirates
 Islamabad Newyork 1/12/2019 8:00 13:00 300000 Qatar
@@ -830,22 +838,19 @@ const threatColorMap = {
   Elevated: '#fb7185',
   Critical: '#ff5cff',
 };
-const INITIAL_THREAT_SCORE = 6; // Baseline risk before anomalies are detected.
-const MAX_TICKET_PRICE = 500000; // Policy ceiling for ticket price validation.
-const SAFE_TEXT_PATTERN = /^[a-zA-Z0-9 .,'-]+$/;
-const MAX_DISPLAYED_ISSUES = 5;
-const isSafeText = (value) => !!value && SAFE_TEXT_PATTERN.test(value.trim());
+const isSafeText = (value) =>
+  !!value && SECURITY_CONFIG.SAFE_TEXT_PATTERN.test(value.trim());
 
 const runSecurityScan = () => {
   const flights = getFlights();
   const reservations = getReservations();
-  let score = INITIAL_THREAT_SCORE;
+  let score = SECURITY_CONFIG.INITIAL_THREAT_SCORE;
   const issues = [];
   let token = generateShieldToken();
 
   const pushIssue = (message, weight = 10) => {
     issues.push(message);
-    score = Math.min(100, score + weight);
+    score = Math.min(SECURITY_CONFIG.MAX_THREAT_SCORE, score + weight);
   };
 
   if (!token) {
@@ -867,7 +872,7 @@ const runSecurityScan = () => {
     if (
       Number.isNaN(flight.ticketPrice) ||
       flight.ticketPrice < 0 ||
-      flight.ticketPrice > MAX_TICKET_PRICE
+      flight.ticketPrice > SECURITY_CONFIG.MAX_TICKET_PRICE
     ) {
       pushIssue(`${label}: ticket price out of policy.`);
     }
@@ -880,7 +885,7 @@ const runSecurityScan = () => {
     if (!isSafeText(reservation.passenger)) {
       pushIssue(`Reservation ${reservation.id}: passenger name requires review.`);
     }
-    if (!['BOOKED', 'CANCELLED'].includes(reservation.status)) {
+    if (!SECURITY_CONFIG.VALID_RESERVATION_STATUSES.includes(reservation.status)) {
       pushIssue(`Reservation ${reservation.id}: status mismatch detected.`);
     }
     if (!reservation.journey || !Array.isArray(reservation.journey.flights)) {
@@ -946,14 +951,16 @@ const renderSecurityLog = (report) => {
     cyberLog.appendChild(ok);
     return;
   }
-  report.issues.slice(0, MAX_DISPLAYED_ISSUES).forEach((issue) => {
+  report.issues
+    .slice(0, SECURITY_CONFIG.MAX_DISPLAYED_ISSUES)
+    .forEach((issue) => {
     const item = document.createElement('div');
     item.textContent = `⚠️ ${issue}`;
     cyberLog.appendChild(item);
   });
-  if (report.issues.length > MAX_DISPLAYED_ISSUES) {
+  if (report.issues.length > SECURITY_CONFIG.MAX_DISPLAYED_ISSUES) {
     const extra = document.createElement('div');
-    extra.textContent = `+${report.issues.length - MAX_DISPLAYED_ISSUES} more alerts logged.`;
+    extra.textContent = `+${report.issues.length - SECURITY_CONFIG.MAX_DISPLAYED_ISSUES} more alerts logged.`;
     cyberLog.appendChild(extra);
   }
 };

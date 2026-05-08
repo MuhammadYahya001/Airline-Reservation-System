@@ -808,6 +808,84 @@ const validateDateInput = (date, target) => {
   return true;
 };
 
+const generateShieldToken = () => {
+  const bytes = new Uint8Array(8);
+  if (window.crypto && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    bytes.forEach((_, index) => {
+      bytes[index] = Math.floor(Math.random() * 256);
+    });
+  }
+  return [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('').toUpperCase();
+};
+
+const getThreatLevel = (score) => {
+  if (score < 20) return 'Low';
+  if (score < 45) return 'Guarded';
+  if (score < 70) return 'Elevated';
+  return 'Critical';
+};
+
+const threatColorMap = {
+  Low: '#22d3ee',
+  Guarded: '#fbbf24',
+  Elevated: '#fb7185',
+  Critical: '#ff5cff',
+};
+
+const runSecurityScan = () => {
+  const flights = getFlights();
+  const reservations = getReservations();
+  let score = 6;
+  const issues = [];
+
+  const pushIssue = (message, weight = 10) => {
+    issues.push(message);
+    score = Math.min(100, score + weight);
+  };
+
+  flights.forEach((flight, index) => {
+    const label = `Flight ${index + 1}`;
+    if (!isValidCityName(flight.origin) || !isValidCityName(flight.destination)) {
+      pushIssue(`${label}: suspicious city identifier detected.`);
+    }
+    if (!isValidDate(flight.date)) {
+      pushIssue(`${label}: invalid date signature.`);
+    }
+    if (!isValidTime(flight.departureTime) || !isValidTime(flight.arrivalTime)) {
+      pushIssue(`${label}: time anomaly flagged.`);
+    }
+    if (Number.isNaN(flight.ticketPrice) || flight.ticketPrice < 0 || flight.ticketPrice > 500000) {
+      pushIssue(`${label}: ticket price out of policy.`);
+    }
+    if (!flight.airline || /[<>$`]/.test(flight.airline)) {
+      pushIssue(`${label}: airline field failed sanitization.`);
+    }
+  });
+
+  reservations.forEach((reservation) => {
+    if (!reservation.passenger || /[<>$`]/.test(reservation.passenger)) {
+      pushIssue(`Reservation ${reservation.id}: passenger name requires review.`);
+    }
+    if (!['BOOKED', 'CANCELLED'].includes(reservation.status)) {
+      pushIssue(`Reservation ${reservation.id}: status mismatch detected.`);
+    }
+    if (!reservation.journey || !Array.isArray(reservation.journey.flights)) {
+      pushIssue(`Reservation ${reservation.id}: journey payload incomplete.`);
+    }
+  });
+
+  return {
+    score,
+    issues,
+    totalFlights: flights.length,
+    totalReservations: reservations.length,
+    token: generateShieldToken(),
+    threat: getThreatLevel(score),
+  };
+};
+
 initData();
 
 const addFlightForm = document.getElementById('addFlightForm');
@@ -824,6 +902,14 @@ const viewReservationsBtn = document.getElementById('viewReservationsBtn');
 const records = document.getElementById('records');
 const modeSelect = document.getElementById('search-mode');
 const modeFields = document.querySelectorAll('[data-modes]');
+const cyberScanBtn = document.getElementById('cyberScanBtn');
+const cyberModeBtn = document.getElementById('cyberModeBtn');
+const cyberThreat = document.getElementById('cyberThreat');
+const cyberToken = document.getElementById('cyberToken');
+const cyberIntegrity = document.getElementById('cyberIntegrity');
+const cyberScore = document.getElementById('cyberScore');
+const cyberMeterBar = document.getElementById('cyberMeterBar');
+const cyberLog = document.getElementById('cyberLog');
 
 const updateModeFields = () => {
   const mode = modeSelect.value;
@@ -835,6 +921,57 @@ const updateModeFields = () => {
 
 updateModeFields();
 modeSelect.addEventListener('change', updateModeFields);
+
+const renderSecurityLog = (report) => {
+  if (!cyberLog) return;
+  const summary = `Scan complete: ${report.issues.length} alerts across ${report.totalFlights} flights and ${report.totalReservations} reservations.`;
+  if (!report.issues.length) {
+    cyberLog.innerHTML = `<div>✅ ${summary} Systems nominal.</div>`;
+    return;
+  }
+  const items = report.issues.slice(0, 5).map((issue) => `<div>⚠️ ${issue}</div>`).join('');
+  const extraCount = report.issues.length > 5 ? `<div>+${report.issues.length - 5} more alerts logged.</div>` : '';
+  cyberLog.innerHTML = `<div>${summary}</div>${items}${extraCount}`;
+};
+
+const updateSecurityUI = (report) => {
+  if (cyberThreat) {
+    cyberThreat.textContent = report.threat;
+    cyberThreat.style.color = threatColorMap[report.threat] || '';
+  }
+  if (cyberToken) {
+    cyberToken.textContent = report.token;
+  }
+  if (cyberIntegrity) {
+    cyberIntegrity.textContent = report.issues.length ? 'Watchlist' : 'Verified';
+  }
+  if (cyberScore) {
+    cyberScore.textContent = `${report.score}%`;
+  }
+  if (cyberMeterBar) {
+    cyberMeterBar.style.width = `${report.score}%`;
+  }
+  renderSecurityLog(report);
+};
+
+if (cyberScanBtn) {
+  cyberScanBtn.addEventListener('click', () => {
+    updateSecurityUI(runSecurityScan());
+  });
+}
+
+if (cyberModeBtn) {
+  cyberModeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('secure-mode');
+    cyberModeBtn.textContent = document.body.classList.contains('secure-mode')
+      ? 'Disable Secure Mode'
+      : 'Activate Secure Mode';
+  });
+}
+
+if (cyberScanBtn) {
+  updateSecurityUI(runSecurityScan());
+}
 
 addFlightForm.addEventListener('submit', (event) => {
   event.preventDefault();

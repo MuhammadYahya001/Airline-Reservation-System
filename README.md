@@ -32,6 +32,7 @@
 - [Building the Project](#building-the-project)
 - [Running Tests](#running-tests)
 - [Technologies Used](#technologies-used)
+- [License](#license)
 
 ---
 
@@ -406,6 +407,12 @@ Build without `RUN_WEBSERVER` defined, then run the output executable. Example o
 | **Google Test** | Unit testing framework |
 | **Visual Studio** | IDE + build system (MSBuild) |
 | **NuGet** | Package management (Google Test) |
+
+---
+
+## License
+
+This project is licensed under the **MIT License**. See [`LICENSE`](./LICENSE) for details.
 
 ---
 
